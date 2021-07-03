@@ -37,7 +37,7 @@ object Scanner {
           try jstream.toScala[List]
           finally jstream.close()
         }
-        scans <- files.map(subpath => pathScan(FilePath(subpath), topN))
+        scans <- Task.traverse(files)(subpath => pathScan(FilePath(subpath), topN))
       } yield scans.combineAll(PathScan.topNMonoid(topN))
     case Other(_) =>
       Task(PathScan.empty)
