@@ -45,7 +45,7 @@ object Scanner {
   }
 
   def scanReport[R: _task: _filesystem: _err: _log](args: Array[String]): Eff[R, String] = for {
-    base <- optionEither(args.lift(0), s"Path to scan must be specified.\n$Usage")
+    base <- optionEither(args.headOption, s"Path to scan must be specified.\n$Usage")
 
     topN <- {
       val n = args.lift(1).getOrElse("10")
@@ -55,8 +55,10 @@ object Scanner {
 
     fs <- ask[R, Filesystem]
 
+    path = fs.filePath(base)
+
     scan <- pathScan[Fx.prepend[Reader[ScanConfig, ?], R]](
-      fs.filePath(base)).runReader[ScanConfig](ScanConfig(topNValid))
+      path).runReader[ScanConfig](ScanConfig(topNValid))
 
   } yield ReportFormat.largeFilesReport(scan, base.toString)
 
@@ -65,6 +67,7 @@ object Scanner {
     case f: File =>
       for {
         fs <- FileSize.ofFile(f)
+        _ <- tell(Log.debug(s"File ${f.path} Size ${fs.size} B"))
       } yield PathScan(SortedSet(fs), fs.size, 1)
 
     case dir: Directory =>

@@ -57,7 +57,6 @@ class ScannerSpec extends mutable.Specification {
 
   val expected = Right(new PathScan(SortedSet(FileSize(sub3, 3), FileSize(base2, 2)), 7, 4))
   val expectedLogs = Set(
-    Log.info("Scan started on Directory(base)"),
     Log.debug("Scanning directory 'Directory(base)': 1 subdirectories and 2 files"),
     Log.debug("File base/1.txt Size 1 B"),
     Log.debug("File base/2.txt Size 2 B"),
@@ -71,6 +70,6 @@ class ScannerSpec extends mutable.Specification {
   "Report Format" ! {actual.mustEqual(expected)}
 
   "Logs messages are emitted (ignores order due to non-determinstic concurrent execution)" ! {
-    expectedLogs.forall(logs.contains)
+    expectedLogs.forall(logs.contains) must beTrue
   }
 }

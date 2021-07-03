@@ -66,7 +66,7 @@ class ScannerSpec extends mutable.Specification {
     val emptyFs: Filesystem = MockFilesystem(directories, Map.empty)
 
     val actual = runE(Scanner.scanReport(Array("base", "10")), emptyFs)
-    val expected = ???
+    val expected = Left("IOException")
 
     actual.mustEqual(expected)
   }
