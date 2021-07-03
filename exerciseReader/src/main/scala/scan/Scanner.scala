@@ -40,18 +40,16 @@ object Scanner {
   def scanReport[R: _task: _filesystem: _config](base: String): Eff[R, String] = for {
     fs <- ask[R, Filesystem]
     scan <- pathScan(fs.filePath(base))
-  } yield ReportFormat.largeFilesReport(scan, base.toString)
+  } yield ReportFormat.largeFilesReport(scan, base)
 
   def pathScan[R: _task: _filesystem: _config](path: FilePath): Eff[R, PathScan] = path match {
     case f: File =>
       for {
-        fs <- ask[R, Filesystem]
-        filesize = FileSize.ofFile(f, fs)
+        filesize <- FileSize.ofFile(f)
       } yield PathScan(SortedSet(filesize), filesize.size, 1)
     case dir: Directory =>
       for {
-        config <- ask[R, ScanConfig]
-        topN = takeTopN(config)
+        topN <- takeTopN
         filesystem <- ask[R, Filesystem]
         childScans <- filesystem.listFiles(dir).traverse(pathScan[R](_))
       } yield childScans.combineAll(topN)
@@ -60,17 +58,16 @@ object Scanner {
   }
 
 
-  def takeTopN(config: ScanConfig): Monoid[PathScan] =
-    new Monoid[PathScan] {
-      def empty: PathScan = PathScan.empty
-
-      def combine(p1: PathScan, p2: PathScan): PathScan = PathScan(
-        p1.largestFiles.union(p2.largestFiles).take(config.topN),
-        p1.totalSize + p2.totalSize,
-        p1.totalCount + p2.totalCount
-      )
-    }
-
+  def takeTopN[R: _config]: Eff[R, Monoid[PathScan]] = for {
+    config <- ask[R, ScanConfig]
+  } yield new Monoid[PathScan] {
+    def empty: PathScan = PathScan.empty
+    def combine(p1: PathScan, p2: PathScan): PathScan = PathScan(
+      p1.largestFiles.union(p2.largestFiles).take(config.topN),
+      p1.totalSize + p2.totalSize,
+      p1.totalCount + p2.totalCount
+    )
+  }
 }
 
 trait Filesystem {
@@ -120,7 +117,8 @@ case class FileSize(file: File, size: Long)
 
 object FileSize {
 
-  def ofFile(file: File, fs: Filesystem) = FileSize(file, fs.length(file))
+  def ofFile[R: _filesystem](file: File): Eff[R, FileSize] =
+    for(fs <- ask[R, Filesystem]) yield FileSize(file, fs.length(file))
 
   implicit val ordering: Ordering[FileSize] = Ordering.by[FileSize, Long](_.size).reverse
 
