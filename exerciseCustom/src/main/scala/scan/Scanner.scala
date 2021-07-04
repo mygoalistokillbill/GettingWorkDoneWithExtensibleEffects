@@ -51,6 +51,7 @@ object Scanner {
       val n = args.lift(1).getOrElse("10")
       fromEither(n.parseInt.leftMap(_ => s"Number of files must be numeric: $n"))
     }
+
     topNValid <- if (topN < 0) left[R, String, Int](s"Invalid number of files $topN") else topN.pureEff[R]
 
     start <- taskDelay(System.currentTimeMillis())
@@ -130,13 +131,11 @@ trait Filesystem {
   def runFilesystemCmds[R, A, U](effects: Eff[R, A])(implicit m: Member.Aux[FilesystemCmd, R, U]): Eff[U, A] = {
 
     val sideEffect = new SideEffect[FilesystemCmd] {
-      def apply[X](fsc: FilesystemCmd[X]): X =
-        (fsc match {
-
-          //replace this handler with your FilesystemCmd cases here
-          case _ => ???
-
-        }).asInstanceOf[X]
+      def apply[X](fsc: FilesystemCmd[X]): X = (fsc match {
+        case MkFilePath(path) => filePath(path)
+        case Length(file) => length(file)
+        case ListFiles(directory) => listFiles(directory)
+      }).asInstanceOf[X]
 
       def applicative[X, Tr[_] : Traverse](ms: Tr[FilesystemCmd[X]]): Tr[X] =
         ms.map(apply)
@@ -215,9 +214,9 @@ object EffTypes {
 
 sealed trait Log {def msg: String}
 object Log {
-  def error: String => Log = Error(_)
-  def info: String => Log = Info(_)
-  def debug: String => Log = Debug(_)
+  def error: String => Log = Error
+  def info: String => Log = Info
+  def debug: String => Log = Debug
 }
 case class Error(msg: String) extends Log
 case class Info(msg: String) extends Log
